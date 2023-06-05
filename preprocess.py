@@ -19,6 +19,7 @@ from sklearn.model_selection import train_test_split
 import os
 import sys
 from functools import partial
+import glob
 # sys.path.append("/usr/local/lib/python3.10/dist-packages/lmdb-1.4.1-py3.10-linux-x86_64.egg")
 # os.chdir("/content")
 def smi2scaffold(smi):
@@ -102,7 +103,7 @@ def write_lmdb(inpath: str='./', outpath: str='./', nthreads:int=16, seed:int=42
     train = pd.read_csv(os.path.join(inpath,'train.csv'))
     valid = pd.read_csv(os.path.join(inpath,'valid.csv'))
     test = pd.read_csv(os.path.join(inpath,'test.csv'))
-   
+    
     for name, content_list in [('train.lmdb', zip(*[train[c].values.tolist() for c in train])),
                                 ('valid.lmdb', zip(*[valid[c].values.tolist() for c in valid])),
                                 ('test.lmdb', zip(*[test[c].values.tolist() for c in test]))]:
@@ -127,15 +128,46 @@ def write_lmdb(inpath: str='./', outpath: str='./', nthreads:int=16, seed:int=42
         txn_write = env_new.begin(write=True)
         with Pool(nthreads) as pool:
             i = 0
-            for inner_output in tqdm(pool.imap(smi2coords, content_list)):
+            for inner_output in tqdm(pool.imap(partial(smi2coords,seed=seed), content_list)):
                 if inner_output is not None:
                     txn_write.put(f'{i}'.encode("ascii"), inner_output)
                     i += 1
             print('{} process {} lines'.format(name, i))
             txn_write.commit()
             env_new.close()
-            
-def one_csv_to_lmdb(data_path:str, seed:int=42):
+
+def single_write_lmdb(file, nthreads:int=16, seed:int=42):
+    print("Generate lmdb data for Uni-Mol model")
+    # outpath=os.path.dirname(file)
+    df = pd.read_csv(file)
+    out_lmdb=file.replace('.csv','.lmdb')
+    # valid = pd.read_csv(os.path.join(inpath,'valid.csv'))
+    # test = pd.read_csv(os.path.join(inpath,'test.csv'))
+    
+    for name, content_list in [(out_lmdb, zip(*[df[c].values.tolist() for c in df])),]:
+    # for name, content_list in [('test.lmdb', zip(*[test[c].values.tolist() for c in test]))]:
+        env_new = lmdb.open(
+            out_lmdb,
+            subdir=False,
+            readonly=False,
+            lock=False,
+            readahead=False,
+            meminit=False,
+            max_readers=1,
+            map_size=int(100e9),
+        )
+        txn_write = env_new.begin(write=True)
+        with Pool(nthreads) as pool:
+            i = 0
+            for inner_output in tqdm(pool.imap(partial(smi2coords,seed=seed), content_list)):
+                if inner_output is not None:
+                    txn_write.put(f'{i}'.encode("ascii"), inner_output)
+                    i += 1
+            print('{} process {} lines'.format(name, i))
+            txn_write.commit()
+            env_new.close()
+
+def split_to_lmdb(data_path:str, seed:int=42):
     '''
     csv colname is highly tolerant:
     first col is the smiles and 
@@ -157,15 +189,16 @@ def one_csv_to_lmdb(data_path:str, seed:int=42):
     write_lmdb(datadir,datadir,seed=seed)
     
     
-def three_csv_to_lmdb(data_path:str, seed:int=42):
+def no_split_to_lmdb(data_path:str, seed:int=42):
     '''
     data_path: dir contains {train,valid,test}.csv
     '''
     op = lambda x:os.path.join(data_path,x)
-    for i in ['train','valid','test']:
-        f=op(f'{i}.csv')
-        assert os.path.isfile(f),(f'missing required file:\n{f}')
-    write_lmdb(data_path,data_path,seed=seed)
+    # for i in ['train','valid','test']:
+    #     f=op(f'{i}.csv')
+    #     assert os.path.isfile(f),(f'missing required file:\n{f}')
+    for i in glob.glob(os.path.join(data_path,'*.csv')):
+        single_write_lmdb(i,seed=seed)
 
 if __name__=='__main__':
     import argparse
@@ -173,17 +206,26 @@ if __name__=='__main__':
     parser.add_argument('--data',required=True,help=('data to process.\n'
         'it can be:\n 1)a .csv file, \n'
         'whose first col is smiles and other cols are target to learn.\n'
-        '2) a directory contains {train,valid,test}.csv,\n'
+        '2) a directory contains one or more .csv files,\n'
         ' with same rule described above'))
     parser.add_argument('--seed',required=False,default=42,
         type=int,help=('(optional) seed for split file and generate 3d conformation.'
                        'default=42'))
+    parser.add_argument('--split',action='store_true',
+                        help=('work only when --data is a csv file.'
+                        ' split it in 8:1:1 ratio if turn this flag on.'))
+    
     args=parser.parse_args()
     data_path:str=args.data
     seed:int=args.seed
+    split:bool=args.split
+    
     if data_path.endswith('.csv'):
-        one_csv_to_lmdb(data_path,seed)
+        if split:
+            split_to_lmdb(data_path,seed)
+        else:
+            single_write_lmdb(data_path,seed=seed)
     else:
-        three_csv_to_lmdb(data_path,seed)
+        no_split_to_lmdb(data_path,seed)
         
 #   write_lmdb(inpath='/content/data', outpath='/content/data', nthreads=16)
