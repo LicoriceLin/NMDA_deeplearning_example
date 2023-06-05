@@ -1,0 +1,11 @@
+SMILES,target
+OC1C(N2CCC1)=NC(C)=C(CCN3CCC(CC3)c4c5ccc(F)cc5on4)C2=O,1
+Nc1nnc(c(N)n1)c2cccc(Cl)c2Cl,1
+[Cl-].CN[C@H]1CC[C@@H](c2ccc(Cl)c(Cl)c2)c3ccccc13.[H+],1
+CN1CCN(CC1)C2=C3C=CC=CC3=Nc4ccc(Cl)cc4N2,1
+ClC1=CC=CC(OC2CCN(CCC3CCCN3S(C4=CC(N([H])C=C5)=C5C=C4)(=O)=O)CC2)=C1,1
+CCCC(C)C1(CC)C(=O)NC(=O)NC1=O,1
+CN(C)Cc1ccnc(c2cccc(NC3C([N+]([O-])=O)=CC=N3)c2)c1,1
+c1(c(cc(NC(CCC)=O)cc1)C(C)=O)OCC(CNC(C)C)O,1
+Cn1c2CCC(Cn3ccnc3C)C(=O)c2c4ccccc14,1
+CN1CCN(CCCN2c3ccccc3Sc4ccc(Cl)cc24)CC1,1
