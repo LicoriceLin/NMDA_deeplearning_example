@@ -200,6 +200,17 @@ def no_split_to_lmdb(data_path:str, seed:int=42):
     for i in glob.glob(os.path.join(data_path,'*.csv')):
         single_write_lmdb(i,seed=seed)
 
+def norm(df:pd.DataFrame):
+    cols=df.shape[1]
+    df.columns=list(range(cols))
+    mean=df[list(range(1,cols))].describe().loc['mean'].to_list()
+    std=df[list(range(1,cols))].describe().loc['std'].to_list()
+    if cols==2:
+        mean=mean[0]
+        std=std[0]
+    return mean,std
+
+
 if __name__=='__main__':
     import argparse
     parser=argparse.ArgumentParser()
@@ -215,6 +226,10 @@ if __name__=='__main__':
                         help=('work only when --data is a csv file.'
                         ' split it in 8:1:1 ratio if turn this flag on.'))
     
+    parser.add_argument('--cal-norm',action='store_true',
+                        help=('calculate normalization parameters (mean &std).'
+                        ' will print output to stdout and save them to norm.prameter'))
+    
     args=parser.parse_args()
     data_path:str=args.data
     seed:int=args.seed
@@ -225,7 +240,24 @@ if __name__=='__main__':
             split_to_lmdb(data_path,seed)
         else:
             single_write_lmdb(data_path,seed=seed)
+        df=pd.read_csv(data_path)
+        mean,std=norm(df)
+        print(f'mean: {mean:.4f}\nstd: {std:.4f}')
+        with open(data_path.replace('.csv','.norm'),'w') as f:
+            f.write(f'mean: {mean:.4f}\n')
+            f.write(f'std: {std:.4f}')
     else:
         no_split_to_lmdb(data_path,seed)
+        dfs=[pd.read_csv(i) for i in glob.glob(
+            os.path.join(data_path,'*.csv'))]
+        df=pd.concat(
+            dfs,axis=0
+        )
+        mean,std=norm(df)
+        print(f'mean: {mean:.4f}\nstd: {std:.4f}')
+        with open(os.path.join(data_path,'.norm'),'w') as f:
+            f.write(f'mean: {mean}\n')
+            f.write(f'std: {std}')
+    
         
 #   write_lmdb(inpath='/content/data', outpath='/content/data', nthreads=16)
